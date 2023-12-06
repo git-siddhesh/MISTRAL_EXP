@@ -2,14 +2,18 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import csv
 import sys
+import time
 import tqdm
 import torch
+import torch.nn as nn
 import numpy as np
-from pathlib import Path
-from prettytable import PrettyTable
 import pandas as pd
-import transformers
-# transformers.logging.set_verbosity_info()
+from pathlib import Path
+from evaluate import load
+from datasets import Dataset
+from prettytable import PrettyTable
+
+metric = load("perplexity")
 
 from transformers import (
     AutoTokenizer, 
@@ -19,43 +23,31 @@ from transformers import (
     DataCollatorForLanguageModeling, 
     EarlyStoppingCallback, 
     DebertaV2Tokenizer,
+    EvalPrediction,
 #    WandbCallback,
 )
 
-import torch
-import torch.nn as nn
-from transformers import PreTrainedTokenizer, PreTrainedModel, PretrainedConfig
 
-# code_path = "/codebase_path/mistral-src"  # codebase
-code_path = "/home/dosisiddhesh/MISTRAL_EXP/Github_repo/mistral-src"
-# data_path = Path("/dataset_path/Symptom2Disease.csv")  # dataset downloaded from Kaggle
-# data_path = Path("/home/dosisiddhesh/MISTRAL_EXP/Github_repo/mistral-src/tutorials/Symptom2Disease.csv")  # dataset downloaded from Kaggle
+code_path = "/home/dosisiddhesh/MISTRAL_EXP/mistral-src"
 data_path = "/home/dosisiddhesh/MISTRAL_EXP/data/abstract.csv"
-
-# model_path = Path("/model_path/")  # model and tokenizer location
-model_path = Path("/home/dosisiddhesh/MISTRAL_EXP/Github_repo/mistral-src/mistral-7B-v0.1")  # model and tokenizer location
+model_path = Path("/home/dosisiddhesh/MISTRAL_EXP/model/mistral-7B-v0.1")  # model and tokenizer location
 tokenizer_path = "/home/dosisiddhesh/MISTRAL_EXP/model/tokenizer_5.0%_50000_new.model" # sentencepiece tokenizer path
-# tokenizer_path = "/home/dosisiddhesh/MISTRAL_EXP/model/tokenizers_1.0_50000.json" # bpe tokenizer path
 sys.path.append(code_path)  # append the path where mistral-src was cloned
 
 from mistral.tokenizer import Tokenizer
 from mistral.model import Transformer, ModelArgs, MyModel
 
 
-# from ppl_bleu_score_calculator import My_Metric
-
-import torch
-from datasets import Dataset
-import time
-
 # import wandb
 # wandb.login()
 # os.environ["WANDB_PROJECT"]="Gal_exp_4"
+# WANDB_PROJECT=amazon_sentiment_analysis"
+# wandb_run_name = "continue_pre_training_gal125M_100k_with_lr_estop_dummy"
 
 def model_size_and_parameters(model):
     table = PrettyTable(["Modules", "Parameters"])
     model_size = sum(t.numel() for t in model.parameters())
-    print(f"bert-base-uncased size: {model_size/1000**2:.1f}M parameters")
+    print(f"MISTRAL model size: {model_size/1000**2:.1f}M parameters")
     total_params = 0
     for name, parameter in model.named_parameters():
         if not parameter.requires_grad:
@@ -79,19 +71,10 @@ class HyperParams:
 
 hp = HyperParams(epoch=4, learning_rate=6e-4, model_id="mistral/dummy")
 
-# WANDB_PROJECT=amazon_sentiment_analysis"
 # device_ids=[1]
 model_id = "mistral"
-# model_name = "gal_125m_10ep_6e-4lr_dummy"
 model_name = f"{model_id}_ep_{hp.epochs}_lr_{hp.learning_rate}_{hp.lr_scheduler_type}_weight_decay_{hp.weight_decay}_warmup_steps_{hp.warmup_steps}"
-# model_dir = os.path.join("/home/dosisiddhesh/GALACTICA_EXP/models", model_name)
 model_dir = os.path.join("/home/dosisiddhesh/MISTRAL_EXP/model", model_name)
-# wandb_run_name = "continue_pre_training_gal125M_100k_with_lr_estop_dummy"
-
-    
-
-    
-
 
 # Define training arguments
 training_args = TrainingArguments(
@@ -119,26 +102,8 @@ training_args = TrainingArguments(
 )
 
 
-# # start a new wandb run to track this script
-# run = wandb.init(
-#     # set the wandb project where this run will be logged
-#     project="continue_pre_training_gal125M",
-    
-#     # track hyperparameters and run metadata
-#     config={
-#     "learning_rate": learning_rate,
-#     "architecture": "Galactica",
-#     "dataset": "Arxiv",
-#     "epochs": epochs,
-#     }
-# )
-
-# Load the tokenizer and model
 print("Loading tokenizer and model...")
-
 demb,vocab,d_head,d_FF,n_layer,n_head,kv_heads,Window = 4096,50000,128,14336,2,32,8,8192
-sequences = []
-# demb,  n_layer, d_head,d_FF,n_head,kv_heads,Window,vocab = "1024	32	128	4336	32	8	1024	32000".split()
 args = ModelArgs(
     dim=int(demb),
     n_layers=int(n_layer),
@@ -151,15 +116,8 @@ args = ModelArgs(
     vocab_size=int(vocab),
     max_batch_size=1,
 )
-
 model = Transformer(args).to("cuda", dtype=torch.float32)
 model_size_and_parameters(model)
-
-config = PretrainedConfig(vocab_size=50000, hidden_size=128)
-model_tx = MyModel(config, model)
-
-
-# print the cuda memory usage
 print(torch.cuda.memory_summary(device=None, abbreviated=False))
 
 print("Loading tokenizer")
@@ -171,7 +129,6 @@ mistral_tokenizer = Tokenizer(tokenizer_path)
 # )
 # tokenizer_deberta.save_pretrained('/home/dosisiddhesh/MISTRAL_EXP/model/tokenizer_5.0%_50000_hf.model')
 
-
 tokenizer = DebertaV2Tokenizer.from_pretrained('/home/dosisiddhesh/MISTRAL_EXP/model/tokenizer_5.0%_50000_hf.model')
 
 print("Tokenizer loaded")
@@ -181,13 +138,9 @@ print("Tokenizer loaded")
 # model = AutoModelForCausalLM.from_pretrained(model_id)
 # model = model.to('cuda:0')
 
-
 # model = torch.nn.DataParallel(model, device_ids=[1])
 # print(f'Model loaded on devices: {model.device_ids}')
 
-
-# model_size = sum(t.numel() for t in model.parameters())
-# print(f"LLama-2 size: {model_size/1000**3:.1f}B parameters")
 #_________________________________________________________________________
 
 data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
@@ -221,14 +174,10 @@ print("Loading train dataset...")
 # Load your pretraining data
 df = pd.read_csv(data_path, nrows=1000)
 print(df.head()) 
-# print("Loading val dataset...")
 # df_eval = pd.read_csv("/home/dosisiddhesh/GALACTICA_EXP/data/arxiv_val.csv", nrows=100)
 print("Dataset loaded")
-
-# randomly select 10% of training data as validation data and rest as training data and fix the seed
 df_eval = df.sample(frac=0.1, random_state=42)
 df = df.drop(df_eval.index) 
-
 
 
 # Convert the dataset to a HuggingFace Dataset object
@@ -243,41 +192,24 @@ print(f'len(train_dataset) {len(train_dataset)}')
 val_dataset = Dataset.from_pandas(df_eval)
 val_dataset = val_dataset.map(tokenize_function, batched=True, remove_columns=val_dataset.column_names)
 
+# print('model.resize_token_embeddings(len(tokenizer))')
 # model.resize_token_embeddings(len(tokenizer))
-print('model.resize_token_embeddings(len(tokenizer))')
-# model.resize_token_embeddings(len(tokenizer))
-
-
-print(f'Training arguments: {training_args}')
 
 early_stop = EarlyStoppingCallback(early_stopping_patience=3)
 
 # _________________________________________________________________________________________
 # In[]: Trainning the model *****************************************************************
-from evaluate import load
 
-metric = load("perplexity")
 
-from transformers import EvalPrediction
 
 def my_compute_metrics(p: EvalPrediction):
     # this function should return 
     # a dictionary {metric_name: score} where score is a float
     # the metrices are perplexity, bleu score and loss value
-
+    # cal bleu ?
     # cal ppl
-    predictions = p.predictions
-    references = p.label_ids
-    ppl = metric.compute(predictions=predictions, references=references)
-
-    # cal bleu
-    
-
     # cal loss
-    loss = p.loss
-    return {"perplexity": ppl, "loss": loss}
-
-
+    return {"perplexity": metric.compute(predictions=p.predictions, references=p.label_ids), "loss": p.loss}
 
 # Initialize the Trainer
 trainer = Trainer(
@@ -302,7 +234,6 @@ print(f'Training time: {time.time() - start_time} seconds')
 print("Saving model...")
 trainer.save_model()
 print("Model saved")
-
 
 # trainer.evaluate()
 # You can also evaluate the model on a validation dataset if available
