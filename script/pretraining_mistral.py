@@ -6,6 +6,17 @@ import time
 import tqdm
 import torch
 import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
+from torch.utils.data import random_split
+from torch.utils.data import RandomSampler
+from torch.utils.data import SequentialSampler
+from torch.utils.data import TensorDataset
+from torch.utils.data import WeightedRandomSampler
+
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -210,6 +221,86 @@ def my_compute_metrics(p: EvalPrediction):
     # cal ppl
     # cal loss
     return {"perplexity": metric.compute(predictions=p.predictions, references=p.label_ids), "loss": p.loss}
+
+
+#############_________________________________________ Training the model ________________________________#####################
+# We reload the Kaggle dataset from the disk. Each sample is composed of a sentence and a label. The dataset contains 24 different labels.
+# data = []  # list of (text, label)
+# with open(data_path, newline='') as csvfile:
+#     reader = csv.reader(csvfile)
+#     for i, row in enumerate(reader):
+#         if i == 0:  # skip csv header
+#             continue
+#         data.append((row[2], row[1]))
+
+# # label text to label ID
+# labels = sorted({x[1] for x in data})
+# txt_to_label = {x: i for i, x in enumerate(labels)}
+# print(f"Reloaded {len(data)} samples with {len(labels)} labels.")
+
+# # integer class for each datapoint
+# data_class = [txt_to_label[x[1]] for x in data]
+
+''' 
+Reloaded 1200 samples with 24 labels.
+The task is to classify a symptom, for instance 
+`"I have a dry cough that never stops."` to one of the 24 disease labels 
+(`Acne, Arthritis, Bronchial Asthma, Cervical spondylosis, Chicken pox, Common Cold, etc.`).
+We will now learn a linear classifier on frozen features provided by Mistral 7B.
+In particular, each sentence in the dataset will be tokenized, and provided to the model.
+If the input sentence is composed of `N` tokens, the model output will be a list of `N` vectors of dimension `d=4096`, where `d` is the dimensionality of the model.
+These vectors are then averaged along the dimension 0 to get a vector of size `d`.
+Finally, the vectors of all sentences in the dataset are concatenated into a matrix of shape `(D, d)` where `D` is the number of samples in the dataset (in particular, D=1200).
+'''
+
+# with torch.no_grad():
+#     featurized_x = []
+#     # compute an embedding for each sentence
+#     for i, (x, y) in tqdm.tqdm(enumerate(data)):
+#         tokens = tokenizer.encode(x, bos=True)
+#         tensor = torch.tensor(tokens).to(model.device)
+#         features = model.forward_partial(tensor, [len(tokens)])  # (n_tokens, model_dim)
+#         logprobs = torch.log_softmax(model.forward(tensor, [len(tokens)]), dim=-1)  # (n_tokens, vocab_size)
+
+
+
+# Assuming you have your DataLoader ready (train_loader)
+# Assuming you have defined a suitable loss function (criterion)
+
+# Model instantiation
+model = Transformer(args)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+# Training loop
+for epoch in range(1):
+    model.train()
+    input("enter to continue")
+    total_loss = 0.0
+
+    for batch in train_loader:
+        input_ids, seqlens, labels = batch
+
+        optimizer.zero_grad()
+        output = model(input_ids, seqlens)
+
+        # Assuming labels are indices for CrossEntropyLoss
+        loss = F.cross_entropy(output, labels)
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    # Print average loss for the epoch
+    avg_loss = total_loss / len(train_loader)
+    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {avg_loss}')
+
+# Optionally, save the trained model
+torch.save(model.state_dict(), 'transformer_model.pth')
+
+
+
+
+
 
 # Initialize the Trainer
 trainer = Trainer(
