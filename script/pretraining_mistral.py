@@ -263,6 +263,9 @@ Finally, the vectors of all sentences in the dataset are concatenated into a mat
 #         logprobs = torch.log_softmax(model.forward(tensor, [len(tokens)]), dim=-1)  # (n_tokens, vocab_size)
 
 
+train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=2, shuffle=True)
+num_epochs = 1
 
 # Assuming you have your DataLoader ready (train_loader)
 # Assuming you have defined a suitable loss function (criterion)
@@ -274,7 +277,6 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 # Training loop
 for epoch in range(1):
     model.train()
-    input("enter to continue")
     total_loss = 0.0
 
     for batch in train_loader:
@@ -302,29 +304,29 @@ torch.save(model.state_dict(), 'transformer_model.pth')
 
 
 
-# Initialize the Trainer
-trainer = Trainer(
-    model=model_tx,
-    tokenizer=tokenizer,
-    args=training_args,
-    data_collator=data_collator, 
-    train_dataset=train_dataset,
-    eval_dataset=val_dataset,
-    # callbacks=[early_stop]#, WandbCallback()]
-    # compute_metrics=None,
-    compute_metrics=my_compute_metrics,
+# # Initialize the Trainer
+# trainer = Trainer(
+#     model=model_tx,
+#     tokenizer=tokenizer,
+#     args=training_args,
+#     data_collator=data_collator, 
+#     train_dataset=train_dataset,
+#     eval_dataset=val_dataset,
+#     # callbacks=[early_stop]#, WandbCallback()]
+#     # compute_metrics=None,
+#     compute_metrics=my_compute_metrics,
 
-)
+# )
 
-# Train the model
-start_time = time.time()
-trainer.train()
-print(f'Training time: {time.time() - start_time} seconds')
+# # Train the model
+# start_time = time.time()
+# trainer.train()
+# print(f'Training time: {time.time() - start_time} seconds')
 
-# Save the trained model
-print("Saving model...")
-trainer.save_model()
-print("Model saved")
+# # Save the trained model
+# print("Saving model...")
+# trainer.save_model()
+# print("Model saved")
 
 # trainer.evaluate()
 # You can also evaluate the model on a validation dataset if available
