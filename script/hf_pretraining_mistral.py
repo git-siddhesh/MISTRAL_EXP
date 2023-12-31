@@ -1,6 +1,7 @@
 import os
 device = '1'
 os.environ["CUDA_VISIBLE_DEVICES"]=device
+os.environ["CUDA_LAUNCH_BLOCKING"]='1'
 
 import sys
 import time
@@ -35,14 +36,14 @@ from mistral.model import Transformer, ModelArgs
 from training_utils import Parameter, MyModel, Dataset_Preprocessing, HyperParams
 #__________________________________________________________________________________________________
 # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-D_emb = 4096,
-Vocal = 50000,
-d_head = 128,
-d_FF = 14336,
-N_Layer = 2,
-N_Head = 16,
-KV_Head = 8,,
-Window = 8192,
+D_emb = 4096
+Vocal = 50000
+d_head = 128
+d_FF = 7168 #14336
+N_Layer = 4
+N_Head = 32
+KV_Head = 8
+Window = 4096 #8192
 value = [D_emb,Vocal,d_head,d_FF,N_Layer,N_Head,KV_Head,Window]
 #**************************************************************************************************
 param = Parameter("Mistral", value)
@@ -53,8 +54,8 @@ hp = HyperParams(
     weight_decay=0.1,  
     warmup_steps=200,
     lr_scheduler_type="linear", #['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'inverse_sqrt', 'reduce_lr_on_plateau']
-    BATCH_SIZE=2,
-    tokenizer_batch_size=2,
+    BATCH_SIZE=1,
+    tokenizer_batch_size=1,
     eval_steps=50, # Adjust as needed1
     logging_steps=50,  # Adjust as needed
     save_steps=200,
@@ -83,7 +84,7 @@ def print_gpu_utilization():
 
 # ___________________________________________________________________________________________________________________________
 # In[]: preparing the dataset ***********************************************************************************************
-dataset_obj = Dataset_Preprocessing(data_path)
+dataset_obj = Dataset_Preprocessing(data_path, dataset_batch_size=hp.tokenizer_batch_size)
 print("Loading tokenizer")
 # tokenizer = dataset_obj.load_tokenizer(tok_type="mistral_src", tokenizer_path=tokenizer_path_sentence_piece_for_mistral_src)
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -99,13 +100,29 @@ tokenizer = dataset_obj.load_tokenizer(tok_type="hf", tokenizer_path=tokenizer_p
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 #-----------------------------------------------------------------------------------------------------------------------------
 print("Loading and preparing dataset...")
-dataset_obj.generate_dataset(rows=200, eval_frac=0.1)
+dataset_obj.generate_dataset(rows=100, eval_frac=0.1)
+
+for i, batch in enumerate(dataset_obj.get_train_dataset()):
+    if i > 31:
+        print(len(batch['input_ids']))
+        print(batch['input_ids'])
+        print(len(batch['attention_mask']))
+        print(batch['attention_mask'])
+    if i == 34:
+        break
 #-----------------------------------------------------------------------------------------------------------------------------
 print("Loading model...")
 model_obj = MyModel(model_id=hp.model_id, hp=hp)
 config = model_obj.get_model_config(param)
 model = model_obj.get_model(param).to("cuda:0", dtype= torch.float32)
 print("Total Params:",model_obj.model_size_and_parameters())
+print("Original Model Size:",model.dtype)
+# model = model.half()
+# print("New model size:",model.dtype)
+
+
+# print("Enabling gradient checkpointing...")
+# model.gradient_checkpointing_enable()
 # print('model.resize_token_embeddings(len(tokenizer))')
 # model.resize_token_embeddings(len(tokenizer))
 
@@ -131,8 +148,8 @@ training_args = TrainingArguments(
     learning_rate=hp.learning_rate,
     # load_best_model_at_end=True, 
     save_steps=hp.save_steps,  # Adjust as needed
-    # fp16=True if isf16 else False,
-    # optim='adafactor',
+    # fp16=True,
+    optim='adafactor',
     save_total_limit=hp.save_total_limit,  # Adjust as needed
     logging_dir="./logs_2",
     # report_to="wandb",
@@ -158,6 +175,7 @@ gpu_mem_usage = (b-a)/(2**20)
 print(f"GPU memory usage: {gpu_mem_usage:.2f} MB")
 print_gpu_utilization()
 
+# input("Press Enter to continue...")
 # Train the model
 start_time = time.time()
 trainer.train()
