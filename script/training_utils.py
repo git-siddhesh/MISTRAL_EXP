@@ -177,15 +177,19 @@ class Dataset_Preprocessing:
         return my_dataset
     
 
-    def generate_dataset(self, rows=None, eval_frac=0.1):
-        dataframe = None
-        if rows is None:
-            dataframe = pd.read_csv(self.data_path)
-            print("loading full dataset of size ", dataframe.shape)
-        else:
-            print("loading sample dataset of size ", rows)
-            dataframe = pd.read_csv(self.data_path, nrows=rows)
+    def generate_dataset(self, row_percent=None, eval_frac=0.1):
+        #Setting initial value of the counter to zero 
+        rowcount  = 0
+        #iterating through the whole file 
+        for row in open(self.data_path): 
+            rowcount+= 1
+        #printing the result 
+        print("Number of lines present:-", rowcount)
+        row_to_read = rowcount if row_percent is None else int(rowcount * row_percent / 100)
+        print("loading sample dataset of size ", row_to_read)
+        dataframe = pd.read_csv(self.data_path, nrows=row_to_read)
         dataframe = dataframe.dropna()
+        print("Total number of rows after dropping NaN: ", len(dataframe))
         df_eval = dataframe.sample(frac=eval_frac, random_state=42)
         dataframe = dataframe.drop(df_eval.index) 
         print("size of dataframe in MB: ", sys.getsizeof(dataframe)/1000000)
@@ -202,3 +206,6 @@ class Dataset_Preprocessing:
     
     def get_val_dataset(self):
         return self.val_dataset
+
+
+#  rsync -ra -e 'ssh -p 2020' --info=progress2  SID_DATA_PROCESSED dosisiddhesh@10.0.62.205:/home/dosisiddhesh/

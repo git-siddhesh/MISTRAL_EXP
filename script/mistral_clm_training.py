@@ -34,7 +34,7 @@ sys.path.append(code_path)  # append the path where mistral-src was cloned
 from mistral.tokenizer import Tokenizer
 from mistral.model import Transformer, ModelArgs
 from training_utils import Parameter, MyModel, Dataset_Preprocessing, HyperParams
-#__________________________________________________________________________________________________
+# In[]: __________________________________________________________________________________________________
 # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 D_emb = 4096
 Vocal = 50000
@@ -55,7 +55,7 @@ hp = HyperParams(
     weight_decay=0.1,  
     warmup_steps=50,
     lr_scheduler_type="linear", #['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'inverse_sqrt', 'reduce_lr_on_plateau']
-    BATCH_SIZE=8,
+    BATCH_SIZE=4,
     tokenizer_batch_size=16,
     eval_steps=50, # Adjust as needed1
     logging_steps=50,  # Adjust as needed
@@ -99,39 +99,11 @@ print("Loading tokenizer")
 # tokenizer = dataset_obj.load_tokenizer(tok_type="debertaV2", tokenizer_path=tokenizer_path_hf_debertv2)
 #-----------------------------------------------------------------------------------------------------------------------------
 tokenizer = dataset_obj.load_tokenizer(tok_type="hf", tokenizer_path=tokenizer_path_hf_our)
-# tokenizer.add_special_tokens({'pad_token': '[PAD]',
-#                               'unk_token': '[UNK]',
-#                               'mask_token': '[MASK]',
-#                               'cls_token': '[CLS]',
-#                               'sep_token': '[SEP]',
-#                               'bos_token': '[BOS]',
-#                               'eos_token': '[EOS]',
-#                               })
 
-# print("Tokenizer special tokens:", tokenizer.special_tokens_map)
-# print("Tokenizer vocab size:", tokenizer.vocab_size)
-# print("Tokenizer bos token:", tokenizer.bos_token)
-# print("Tokenizer eos token:", tokenizer.eos_token)
-# print("Tokenizer pad token:", tokenizer.pad_token)
-# print("Tokenizer unk token:", tokenizer.unk_token)
-# print("Tokenizer mask token:", tokenizer.mask_token)
-# print("Tokenizer cls token:", tokenizer.cls_token)
-# print("Tokenizer sep token:", tokenizer.sep_token)
-# print("Tokenizer pad token id:", tokenizer.pad_token_id)
-# print("Tokenizer unk token id:", tokenizer.unk_token_id)
-# print("Tokenizer mask token id:", tokenizer.mask_token_id)
-# print("Tokenizer cls token id:", tokenizer.cls_token_id)
-# print("Tokenizer sep token id:", tokenizer.sep_token_id)
-# print("Tokenizer bos token id:", tokenizer.bos_token_id)
-# print("Tokenizer eos token id:", tokenizer.eos_token_id)
-# print("Tokenizer vocab size:", tokenizer.vocab_size)
-# decode the token -100 
-# input("Press Enter to continue...")
 #-----------------------------------------------------------------------------------------------------------------------------
 print("Loading and preparing dataset...")
-dataset_obj.generate_dataset(rows=data_row, eval_frac=hp.eval_frac)
-
-
+dataset_obj.generate_dataset(row_percent=0.001 #data_row
+                             , eval_frac=hp.eval_frac)
 
 #-----------------------------------------------------------------------------------------------------------------------------
 print("Loading model...")
@@ -141,11 +113,11 @@ model = model_obj.get_model(param).to("cuda:0", dtype= torch.float32)
 print("Total Params:",model_obj.model_size_and_parameters())
 print("Original Model Size:",model.dtype)
 
-model_parallel = torch.nn.DataParallel(model, device_ids=[0,1,2,3])
+# model_parallel = torch.nn.DataParallel(model, device_ids=[0,1,2,3])
 
-print(f'Model loaded on devices: {model_parallel.device_ids}')
-input("Press Enter to continue...")
-model = model_parallel.module
+# print(f'Model loaded on devices: {model_parallel.device_ids}')
+# input("Press Enter to continue...")
+# model = model_parallel.module
 
 # model = model.half()
 # print("New model size:",model.dtype)
