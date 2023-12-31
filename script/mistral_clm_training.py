@@ -37,7 +37,7 @@ from training_utils import Parameter, MyModel, Dataset_Preprocessing, HyperParam
 # In[]: __________________________________________________________________________________________________
 # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 D_emb = 4096
-Vocal = 50000
+Vocal = 30000
 d_head = 128
 d_FF = 7168 #14336
 N_Layer = 4
@@ -110,7 +110,7 @@ print("Loading model...")
 model_obj = MyModel(model_id=hp.model_id, hp=hp)
 config = model_obj.get_model_config(param)    # huggingface mistral config
 model = model_obj.get_model(param).to("cuda:0", dtype= torch.float32)
-print("Total Params:",model_obj.model_size_and_parameters())
+print("Total Params v/s one attention layer param:",model_obj.model_size_and_parameters())
 print("Original Model Size:",model.dtype)
 
 # model_parallel = torch.nn.DataParallel(model, device_ids=[0,1,2,3])
@@ -179,6 +179,7 @@ print(f"GPU memory usage: {gpu_mem_usage:.2f} MB")
 print_gpu_utilization()
 
 # ----------------------------------------------------------------------------------------------------------------------------
+input("Press Enter to continue...")
 
 # Train the model
 start_time = time.time()

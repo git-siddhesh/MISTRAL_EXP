@@ -116,15 +116,19 @@ class MyModel(Parameter, HyperParams):
         model_size = sum(t.numel() for t in self.model.parameters())
         print(f"MISTRAL model size: {model_size/1000**2:.1f}M parameters")
         self.total_params = 0
+        self.one_layer_params = 0
         for name, parameter in self.model.named_parameters():
             if not parameter.requires_grad:
                 continue
             params = parameter.numel()
             table.add_row([name, params])
             self.total_params += params
+            if "layers.0" in name:
+                self.one_layer_params += params
         print(table)
         print(f"Total Trainable Params: {self.total_params/10**6:.4f}M")
-        return self.total_params
+        print(f"Total Trainable Params in one layer: {self.one_layer_params/10**6:.4f}M")
+        return self.total_params, self.one_layer_params
     
     
 
