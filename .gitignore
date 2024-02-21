@@ -1,0 +1,61 @@
+# Ignore data and model directory
+data/
+model/
+model2/
+mistral-src/
+script/logs_2/
+
+# Ignore files larger than 10MB
+*.largefile
+
+__pycache__/
+
+# Byte-compiled / optimized / DLL files
+__pycach
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+
+
+.cache
+
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
